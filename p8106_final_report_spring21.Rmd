@@ -1,0 +1,39 @@
+---
+title: "Diabetes Prediction model: NHANES data 2013-2014" 
+author: "Hannah Rosenblum, James Ng, Purnima Sharma"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{lipsum}
+- \pagestyle{fancy}
+- \fancyhead[R]{\thepage}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = 'asis')
+```
+
+\newpage
+
+```{r}
+library(RNHANES)
+library(tidyverse)
+library(summarytools)
+library(leaps)
+library(readr)
+library(caret)
+library(ggplot2)
+library(patchwork)
+library(mgcv)
+library(nlme)
+```
+
+# Introduction
