@@ -38,33 +38,54 @@ library(nlme)
 
 # Introduction
 
-This project aimed to study any association between diabetes and several covariates in participants, ages 12 and older, using NHANES data. Effort was made to build an optimal prediction model to identify key variables within the dataset for a categorical outcome of diabetes, objective being a binary classification model with supervised learning. Certain factors of special interest were any association with participant’s race, age, cholesterol and fasting glucose levels, among others. Specifically, association was assessed between diabetes and plasma fasting glucose, body mass index, blood pressure, hours of fasting, weekly workload, cholesterol, triglycerides, insulin levels, 2 hour glucose tolerance, glucose challenge  and other demographic factors such as age, gender, race, using the NHANES data for the year 2013 - 2014 from the cdc.gov website, https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?BeginYear=2013 . 
+This project aimed to study any association between diabetes and several covariates in participants ages 1 and older, using NHANES data, and selecting an optimal prediction model among linear, non-linear, parametric and non-parametric models. The main objective was building a binary classification model with supervised learning. Certain factors of special interest were any association with participant’s race, age, cholesterol and lifestyle factors, among others. Data was extracted for the year 2013 - 2014 from the cdc.gov website, https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?BeginYear=2013. Specifically, association was assessed between diabetes and the following covariates:
 
-Motivation was provided by the fact that diabetes is one of the major leading causes of death in the United States. As stated by the CDC site's National Diabetes Statistics Report of 2020, 34.2 million Americans are diabetic, while 7.3 million were undiagnosed. With prevalence of diabetes and prediabetes on the rise, it was of interest to find factors that might affect the diabetes status. Later years post-2013 were tried for the data, however were unavailable for the variables of interest possibly due to continuing updates. 
+* Gender: Participant's gender (male or female)
+* Age: Age at screening, with possible values of 0 to 79, or 80+ (years)
+* Race: 6 categories for race include Mexican American, other Hispanic, White, Black, Asian and other. 
+* bmi: body mass index (kg/m^2) 
+* hdl: High-density lipoprotein (mg/dL)
+* ldl: Low-density lipoprotein (mg/dL)
+* Triglycerides (mg/dL): laboratory test results for serum levels of triglycerides
+* Insulin (uU/mL): measured using serum insulin methods
+* Glucose (mg/dL): plasma glucose value measured 2 hours after calibrated oral dose
+* Blood pressure (mm Hg): Both systolic and diastolic, first-round measurements
+* waist: Waist circumference measurement (cm)
+* Sedentary activity (lifestyle, minutes): time spent sitting in a given day, not including sleeping.
+* Education level: highest degree of adults 20+ years of age
+* Marital status: Categories include married, widowed, divorced, separated, never married, living with partner, refused, and don't know
+* Depression: severity on a scale of 0 to 3 treated as a continuous variable, with 0 as not at all depressed
+* Sleep: amount of sleep in hours on a given night on weekdays or workdays
 
-After extracting and merging the necessary files by participant’s Id number, variables of interest were retained in a dataframe, and saved as a dataset file within the project for easy access. Gender, Race and the response variable Diabetes were converted to factors from numeric data type. Missing entries for the response of diabetes status were removed. 185 “borderline “ reported cases, 5 with “don’t know” responses and 1 with “refused” response were also removed given the small scale of these categories, which accounted for less than 2% of the data, and in order to focus on the majority of binary responses of presence or absence of diabetes. The cleaned data contained 9,578 observations of 15 variables, including the binary outcome variable diabetes.  
+The outcome of "diabetes" dependent-variable was based on classification of the participants into two groups of those with diabetes and those who did not have diabetes. Individuals answered the question "other than during pregnancy, have you ever been told by a doctor or health professional that you have diabetes or sugar diabetes?", and were classified as having diabetes if they answered yes.
+
+Motivation was provided by the fact that diabetes is one of the major leading causes of death in the United States. As stated by the CDC site's National Diabetes Statistics Report of 2020, 34.2 million Americans are diabetic, while 7.3 million were undiagnosed. Furthermore, increase in type 2 diabetes among children is a growing concern according to the CDC. With prevalence of diabetes and prediabetes on the rise, it was of interest to find factors that might affect the diabetes status. Later years post-2013 were tried for the data, however were unavailable for the variables of interest possibly due to continuing updates. 
+
+NEED to update: ---------------------
+After extracting and merging the necessary files by participant’s Id number, variables of interest were retained in a dataframe, and saved as a dataset file within the project for easy access. Gender, Race and the response variable Diabetes were converted to factors from numeric data type. Missing entries for the response of diabetes status were removed. 185 “borderline “ reported cases, 5 with “don’t know” responses and 1 with “refused” response were also removed given the small scale of these categories, which accounted for less than 2% of the data, and in order to focus on the majority of binary responses of presence or absence of diabetes. The cleaned data contained 9,578 observations of 15 variables, including the binary outcome variable diabetes. --------------------  
 
 ```{r}
 data_files <- nhanes_load_data(file_name = "DIQ_H", year = "2013-2014")
 
 data_files <- data_files %>% 
-    left_join(nhanes_load_data("GLU_H", "2013-2014"), by = "SEQN") %>%
   left_join(nhanes_load_data("HDL_H", "2013-2014"), by = "SEQN") %>%
   left_join(nhanes_load_data("INS_H", "2013-2014"), by = "SEQN") %>%
   left_join(nhanes_load_data("TRIGLY_H", "2013-2014"), by = "SEQN") %>% 
   left_join(nhanes_load_data("DEMO_H", "2013-2014"), by = "SEQN") %>% 
   left_join(nhanes_load_data("BMX_H", "2013-2014"), by = "SEQN") %>% 
-  left_join(nhanes_load_data("OCQ_H", "2013-2014"), by = "SEQN") %>% 
-  left_join(nhanes_load_data("OGTT_H", "2013-2014"), by = "SEQN")
+  left_join(nhanes_load_data("OGTT_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("BPX_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("PAQ_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("DPQ_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("SLQ_H", "2013-2014"), by = "SEQN")
 
 raw_data <- data_files %>% 
-  select(SEQN, RIAGENDR, RIDAGEYR, RIDRETH3, BMXBMI, PHAFSTHR.x, OCQ180, LBDHDD, LBDLDL, LBXTR, LBXIN, LBXGLT, GTDDR1MN, GTDBL2MN, LBXGLU, DIQ010) 
+  select(SEQN, RIAGENDR, RIDAGEYR, RIDRETH3, BMXBMI, LBDHDD, LBDLDL, LBXTR, LBXIN, LBXGLT, BPXSY1, BPXDI1, BMXWAIST,  PAD680, DMDEDUC2, DMDMARTL, DPQ020, SLD010H,  DIQ010) 
 
-raw_data <- raw_data[raw_data$DIQ010 != 3 & raw_data$DIQ010 != 7 & raw_data$DIQ010 != 9, ] %>% 
- mutate(RIAGENDR = as_factor(RIAGENDR), RIDRETH3 = as_factor(RIDRETH3), DIQ010 = as_factor(DIQ010) ) %>% 
+raw_data <- raw_data[raw_data$DIQ010 != 3 & raw_data$DIQ010 != 7 & raw_data$DIQ010 != 9, ] %>%  mutate(RIAGENDR = as_factor(RIAGENDR), RIDRETH3 = as_factor(RIDRETH3),DMDEDUC2 = as_factor(DMDEDUC2), DMDMARTL = as_factor(DMDMARTL), DIQ010 = as_factor(DIQ010) ) %>% 
   drop_na(DIQ010) 
  
- colnames(raw_data) <- c("ID", "gender", "age", "race", "bmi", "fasting_hrs", "workload", "hdl", "ldl", "triglyceride", "insulin", "hr2_glucose_tolerance", "glucose_challenge", "glucose_tolerance", "glucose", "diabetes") 
+ colnames(raw_data) <- c("ID", "gender", "age", "race", "bmi", "hdl", "ldl", "triglyceride", "insulin", "glucose", "bp_systolic","bp_diastolic", "waist","lifestyle", "education", "married", "depression", "sleep", "diabetes") 
  
  levels(raw_data$diabetes)[1] <- "yes"
  levels(raw_data$diabetes)[2] <- "no"
