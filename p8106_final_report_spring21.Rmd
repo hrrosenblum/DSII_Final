@@ -34,6 +34,9 @@ library(ggplot2)
 library(patchwork)
 library(mgcv)
 library(nlme)
+library(AppliedPredictiveModeling)
+library(dplyr)
+library(scales)
 ```
 
 # Introduction
@@ -52,7 +55,7 @@ This project aimed to study any association between diabetes and several covaria
 * Blood pressure (mm Hg): Both systolic and diastolic, first-round measurements
 * waist: Waist circumference measurement (cm)
 * Sedentary activity (lifestyle, minutes): time spent sitting in a given day, not including sleeping.
-* Education level: highest degree of adults 20+ years of age
+* Education level: highest degree of adults 20+ years of age, with 7 categories. 
 * Marital status: Categories include married, widowed, divorced, separated, never married, living with partner, refused, and don't know
 * Depression: severity on a scale of 0 to 3 treated as a continuous variable, with 0 as not at all depressed
 * Sleep: amount of sleep in hours on a given night on weekdays or workdays
@@ -61,8 +64,7 @@ The outcome of "diabetes" dependent-variable was based on classification of the 
 
 Motivation was provided by the fact that diabetes is one of the major leading causes of death in the United States. As stated by the CDC site's National Diabetes Statistics Report of 2020, 34.2 million Americans are diabetic, while 7.3 million were undiagnosed. Furthermore, increase in type 2 diabetes among children is a growing concern according to the CDC. With prevalence of diabetes and prediabetes on the rise, it was of interest to find factors that might affect the diabetes status. Later years post-2013 were tried for the data, however were unavailable for the variables of interest possibly due to continuing updates. 
 
-NEED to update: ---------------------
-After extracting and merging the necessary files by participant’s Id number, variables of interest were retained in a dataframe, and saved as a dataset file within the project for easy access. Gender, Race and the response variable Diabetes were converted to factors from numeric data type. Missing entries for the response of diabetes status were removed. 185 “borderline “ reported cases, 5 with “don’t know” responses and 1 with “refused” response were also removed given the small scale of these categories, which accounted for less than 2% of the data, and in order to focus on the majority of binary responses of presence or absence of diabetes. The cleaned data contained 9,578 observations of 15 variables, including the binary outcome variable diabetes. --------------------  
+After extracting and merging the necessary files by participant’s Id number, variables of interest were retained in a dataframe. Gender, race, education level, marital status  and the response variable Diabetes were converted to factors from numeric data type. Missing entries for the response of diabetes status were removed. 185 “borderline “ reported cases, 5 with “don’t know” responses and 1 with “refused” response were also removed given the small scale of these categories, which accounted for less than 2% of the data, and in order to focus on the majority of binary responses of presence or absence of diabetes. The cleaned dataset contained 9,578 observations of 15 variables, including the binary outcome variable diabetes. 
 
 ```{r}
 data_files <- nhanes_load_data(file_name = "DIQ_H", year = "2013-2014")
@@ -92,7 +94,8 @@ raw_data <- raw_data[raw_data$DIQ010 != 3 & raw_data$DIQ010 != 7 & raw_data$DIQ0
 ```
 
 # EDA
-...
+
+## summary statistics
 
 ```{r}
 st_options(plain.ascii = FALSE,       
@@ -104,4 +107,67 @@ st_options(plain.ascii = FALSE,
 dfSummary(raw_data[,-1], valid.col = FALSE)
 ```
 
+## Density plots (numerical covariates)
+
+```{r, fig.height=4}
+
+theme1 <- transparentTheme(trans = .4)
+trellis.par.set(theme1)
+
+raw_data <- raw_data %>% 
+  select(married, everything()) %>% 
+  select(education, everything()) %>% 
+  select(race, everything()) %>% 
+  select(gender, everything()) %>% 
+  select(ID, everything())
+
+featurePlot(x = raw_data[, 6:18], 
+            y = raw_data$diabetes,
+            scales = list(x = list(relation = "free"), 
+                          y = list(relation = "free")),
+            plot = "density", pch = "|", 
+            auto.key = list(columns = 2))
+```
+
+## Bar plots (categorical covariates)
+
+```{r}
+diabetes_gender = ggplot(raw_data, 
+       aes(x = diabetes, 
+           fill = factor(gender,
+                         levels = c("1", "2"),
+                         labels = c("male", "female")))) + 
+  geom_bar(position = position_dodge(preserve = "single")) +
+   scale_fill_brewer(palette = "Set2") +
+  labs(fill = "gender")
+
+diabetes_race = ggplot(raw_data, 
+       aes(x = diabetes, 
+           fill = factor(race,
+                         levels = c("1", "2", "3", "4", "6", "7"),
+                         labels = c("Mexican American", "Other Hispanic", "White", "Black", "Asian", "Other")))) + 
+  geom_bar(position = position_dodge(preserve = "single")) +
+   scale_fill_brewer(palette = "Set2") +
+   labs(fill = "race")
+
+diabetes_education = ggplot(raw_data, 
+       aes(x = diabetes, 
+           fill = factor(education,
+                         levels = c("1", "2", "3", "4", "5"),
+                         labels = c("< 9th grade", "9 - 11 grade", "H.S./GED", "Some college", "College graduate")))) + 
+  geom_bar(position = position_dodge(preserve = "single")) +
+   scale_fill_brewer(palette = "Set2") +
+   labs(fill = "education")
+
+diabetes_married = ggplot(raw_data, 
+       aes(x = diabetes, 
+           fill = factor(married,
+                         levels = c("1", "2", "3", "4", "5", "6"),
+                         labels = c("Married", "Widowed", "Divorced", "Separated", "Never married", "Living with partner")))) + 
+  geom_bar(position = position_dodge(preserve = "single")) +
+   scale_fill_brewer(palette = "Set2") +
+    labs(fill = "married")
+
+(diabetes_gender + diabetes_race)  / (diabetes_education + diabetes_married) 
+```
 
