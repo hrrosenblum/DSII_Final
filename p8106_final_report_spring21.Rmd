@@ -95,6 +95,8 @@ raw_data <- raw_data[raw_data$DIQ010 != 3 & raw_data$DIQ010 != 7 & raw_data$DIQ0
 
 # EDA
 
+Exploratory data analysis was performed using density plots and bar graphs. Summary statistics were analyzed for all variables, to get an overview of the data and check for extent of missing values. Density plots were used to check for relationships between diabetes and other numeric variables. Categorical variables were visualized separately, using bar graphs instead. 
+
 ## summary statistics
 
 ```{r}
@@ -107,7 +109,9 @@ st_options(plain.ascii = FALSE,
 dfSummary(raw_data[,-1], valid.col = FALSE)
 ```
 
-## Density plots (numerical covariates)
+As noted above in the summary table, several of the variables for laboratory data had high missing values. Given the size of the dataset with 9,578 observations, and the potential significance of these variables as indicated in previous studies, the ldl, triglyceride, insulin and 2hr glucose-test outcomes were retained.  
+
+## Density plots
 
 ```{r, fig.height=4}
 
@@ -129,7 +133,9 @@ featurePlot(x = raw_data[, 6:18],
             auto.key = list(columns = 2))
 ```
 
-## Bar plots (categorical covariates)
+Density plots of several numeric covariates showed differences in distributions. Plots of 2 hour glucose tolerance where the participants after the initial fasting were asked to drink a calibrated dose of glucose solution and tested after 2 hours, systolic blood pressure, waist circumference measurement, age, and body mass index showed significant differences between the two groups of participants, those with diabetes and those without. Most significant difference seemed to be among different age groups, with density curve of responses with no diabetes showing right-skewness, and those with diabetes skewed to the left along with a strong shift towards higher age. 
+
+## Bar plots
 
 ```{r}
 diabetes_gender = ggplot(raw_data, 
@@ -170,4 +176,49 @@ diabetes_married = ggplot(raw_data,
 
 (diabetes_gender + diabetes_race)  / (diabetes_education + diabetes_married) 
 ```
+
+Bar plots were analyzed for categorical variables gender, race ,education level, and marital status. Presence of diabetes did not seem to be gender-dependent, and with slight differences based on education level. Proportion of positive diabetes cases did seem to vary among different races, and based on marital status. There seemed to be significantly higher proportion of non-diabetics among individuals who were never-married or divorced.
+
+## Missing data
+
+Certain variables with high proportion of missing data were retained. The dataset had close to 60% of missing values for the 4 variables which were considered significant for the given response. Assuming that the data was missing at random, and that single imputation might lead to bias and might not preserve relationships between variables; for those reasons imputation was not considered and the missing values were removed. The final sample consisted of 1,564 participants.
+
+```{r}
+# Missing data omitted
+diabetes_data <- na.omit(raw_data)
+
+set.seed(1)
+trainRows <- createDataPartition(diabetes_data$diabetes, p = 0.8, list = FALSE)
+
+
+# training data
+x <- diabetes_data[trainRows ,-c(1, 19)]
+y <- diabetes_data$diabetes[trainRows]
+
+# test data
+x2 <- diabetes_data[-trainRows ,-c(1, 19)]
+y2 <- diabetes_data$diabetes[-trainRows]
+```
+
+# Models
+
+## Linear models
+
+## Non-linear models
+
+## Ensemble methods
+
+## Support vector machines
+
+## Model comparison
+
+## Final model
+
+## Model prediction performance
+
+## Limitations
+
+# Conclusion
+
+
 
