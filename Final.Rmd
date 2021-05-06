@@ -1,0 +1,180 @@
+---
+title: "Final" 
+author: "Hannah Rosenblum"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{lipsum}
+- \pagestyle{fancy}
+- \fancyhead[R]{\thepage}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+\newpage
+
+```{r}
+library(NHANES)
+library(RNHANES)
+library(tidyverse)
+library(summarytools)
+library(visdat)
+library(caret)
+library(glmnet)
+library(mlbench)
+library(pROC)
+library(pdp)
+library(vip)
+library(AppliedPredictiveModeling)
+library(MASS)
+
+set.seed(1)
+```
+
+# Data 
+
+```{r}
+data_files <- nhanes_load_data(file_name = "DIQ_H", year = "2013-2014")
+
+data_files <- data_files %>% 
+  left_join(nhanes_load_data("HDL_H", "2013-2014"), by = "SEQN") %>%
+  left_join(nhanes_load_data("INS_H", "2013-2014"), by = "SEQN") %>%
+  left_join(nhanes_load_data("TRIGLY_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("DEMO_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("BMX_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("OGTT_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("BPX_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("PAQ_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("DPQ_H", "2013-2014"), by = "SEQN") %>% 
+  left_join(nhanes_load_data("SLQ_H", "2013-2014"), by = "SEQN")
+
+raw_data <- data_files %>% 
+  select(SEQN, RIAGENDR, RIDAGEYR, RIDRETH3, BMXBMI, LBDHDD, LBDLDL, LBXTR, LBXIN, LBXGLT, BPXSY1, BPXDI1, BMXWAIST,  PAD680, DMDEDUC2, DMDMARTL, DPQ020, SLD010H,  DIQ010) 
+
+raw_data <- raw_data[raw_data$DIQ010 != 3 & raw_data$DIQ010 != 7 & raw_data$DIQ010 != 9, ] %>%  mutate(RIAGENDR = as_factor(RIAGENDR), RIDRETH3 = as_factor(RIDRETH3),DMDEDUC2 = as_factor(DMDEDUC2), DMDMARTL = as_factor(DMDMARTL), DIQ010 = as_factor(DIQ010) ) %>% 
+  drop_na(DIQ010) 
+ 
+ colnames(raw_data) <- c("ID", "gender", "age", "race", "bmi", "hdl", "ldl", "triglyceride", "insulin", "glucose", "bp_systolic","bp_diastolic", "waist","lifestyle", "education", "married", "depression", "sleep", "diabetes") 
+ 
+ levels(raw_data$diabetes)[2] <- "no"
+ levels(raw_data$diabetes)[1] <- "yes"
+ 
+```
+
+------------------------------------------------------------------------
+Training data:
+
+```{r}
+# Missing data omitted
+diabetes_data <- na.omit(raw_data) %>%
+  select(-"glucose")
+
+set.seed(1)
+trainRows <- createDataPartition(diabetes_data$diabetes, p = 0.8, list = FALSE)
+
+
+# training data
+x <- diabetes_data[trainRows ,-c(1, 18)]
+y <- diabetes_data$diabetes[trainRows]
+
+# test data
+x2 <- diabetes_data[-trainRows ,-c(1, 18)]
+y2 <- diabetes_data$diabetes[-trainRows]
+```
+----------------------------------------------------------------------------
+
+
+#Perform exploratory data analysis (e.g., scatter plots of response vs. predictors).
+```{r, fig.height=8}
+vis_miss(raw_data[,-1])
+
+st_options(plain.ascii = FALSE,       
+           style = "rmarkdown", 
+           dfSummary.silent = TRUE,        
+           footnote = NA,          
+           subtitle.emphasis = FALSE)      
+
+dfSummary(raw_data[,-1])
+
+dfSummary(diabetes_data[,-1])
+
+
+theme1 <- transparentTheme(trans = .4)
+trellis.par.set(theme1)
+
+featurePlot(x = diabetes_data[, 2:18], 
+            y = diabetes_data$diabetes,
+            scales = list(x = list(relation = "free"), 
+                          y = list(relation = "free")),
+            plot = "density", pch = "|", 
+            auto.key = list(columns = 2))
+
+```
+
+## glm
+
+```{r}
+ctrl <- trainControl(method = "cv",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+set.seed(1)
+model.glm <- train(x, y,
+                   method = "glm",
+                   metric = "ROC",
+                   trControl = ctrl)
+
+glm.pred <- predict(model.glm, newdata = x2, type = "prob")[,2]
+
+
+roc.glm <- roc(y2, glm.pred)
+plot(roc.glm, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc.glm), col = 4, add = TRUE)
+
+```
+
+## Penalized logistic regression
+
+```{r}
+glmnGrid <- expand.grid(.alpha = seq(0, 1, length = 6),
+                        .lambda = exp(seq(-8, -2, length = 10)))
+set.seed(1)
+model.glmn <- train(x, y,
+                    method = "glmnet",
+                    tuneGrid = glmnGrid,
+                    metric = "ROC",
+                    trControl = ctrl)
+
+plot(model.glmn, xTrans = function(x) log(x))   
+
+model.glmn$bestTune
+```
+
+## LDA
+```{r}
+ctrl <- trainControl(method = "cv",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+
+set.seed(1)
+model.lda <- train(x, y,
+                   method = "lda",
+                   metric = "ROC",
+                   trControl = ctrl)
+
+lda.pred <- predict(model.lda, newdata = x2, type = "prob")
+
+roc.lda <- roc(y2, lda.pred)
+plot(roc.lda, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc.lda), col = 4, add = TRUE)
+```
