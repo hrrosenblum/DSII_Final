@@ -29,6 +29,7 @@ library(NHANES)
 library(RNHANES)
 library(tidyverse)
 library(summarytools)
+library(forcats)
 library(visdat)
 library(caret)
 library(glmnet)
@@ -37,7 +38,6 @@ library(pROC)
 library(pdp)
 library(vip)
 library(AppliedPredictiveModeling)
-library(MASS)
 
 set.seed(1)
 ```
@@ -60,12 +60,12 @@ data_files <- data_files %>%
   left_join(nhanes_load_data("SLQ_H", "2013-2014"), by = "SEQN")
 
 raw_data <- data_files %>% 
-  select(SEQN, RIAGENDR, RIDAGEYR, RIDRETH3, BMXBMI, LBDHDD, LBDLDL, LBXTR, LBXIN, LBXGLT, BPXSY1, BPXDI1, BMXWAIST,  PAD680, DMDEDUC2, DMDMARTL, DPQ020, SLD010H,  DIQ010) 
+  select(SEQN, RIAGENDR, RIDAGEYR, RIDRETH3, BMXBMI, LBDHDD, BPXSY1, BPXDI1, BMXWAIST,  PAD680, DMDEDUC2, DMDMARTL, DPQ020, SLD010H,  DIQ010) 
 
 raw_data <- raw_data[raw_data$DIQ010 != 3 & raw_data$DIQ010 != 7 & raw_data$DIQ010 != 9, ] %>%  mutate(RIAGENDR = as_factor(RIAGENDR), RIDRETH3 = as_factor(RIDRETH3),DMDEDUC2 = as_factor(DMDEDUC2), DMDMARTL = as_factor(DMDMARTL), DIQ010 = as_factor(DIQ010) ) %>% 
   drop_na(DIQ010) 
  
- colnames(raw_data) <- c("ID", "gender", "age", "race", "bmi", "hdl", "ldl", "triglyceride", "insulin", "glucose", "bp_systolic","bp_diastolic", "waist","lifestyle", "education", "married", "depression", "sleep", "diabetes") 
+ colnames(raw_data) <- c("ID", "gender", "age", "race", "bmi", "hdl", "bp_systolic","bp_diastolic", "waist","lifestyle", "education", "married", "depression", "sleep", "diabetes") 
  
  levels(raw_data$diabetes)[2] <- "no"
  levels(raw_data$diabetes)[1] <- "yes"
@@ -78,18 +78,24 @@ Training data:
 ```{r}
 # Missing data omitted
 diabetes_data <- na.omit(raw_data) %>%
-  select(-"glucose")
+  filter(married != "77") %>%
+  filter(education != "7") %>%
+  filter(education != "9") %>%
+  droplevels()
+
 
 set.seed(1)
 trainRows <- createDataPartition(diabetes_data$diabetes, p = 0.8, list = FALSE)
 
 
+
+
 # training data
-x <- diabetes_data[trainRows ,-c(1, 18)]
+x <- diabetes_data[trainRows ,-c(1, 15)]
 y <- diabetes_data$diabetes[trainRows]
 
 # test data
-x2 <- diabetes_data[-trainRows ,-c(1, 18)]
+x2 <- diabetes_data[-trainRows ,-c(1, 15)]
 y2 <- diabetes_data$diabetes[-trainRows]
 ```
 ----------------------------------------------------------------------------
@@ -129,6 +135,7 @@ ctrl <- trainControl(method = "cv",
                      summaryFunction = twoClassSummary,
                      classProbs = TRUE)
 set.seed(1)
+
 model.glm <- train(x, y,
                    method = "glm",
                    metric = "ROC",
@@ -149,7 +156,8 @@ plot(smooth(roc.glm), col = 4, add = TRUE)
 glmnGrid <- expand.grid(.alpha = seq(0, 1, length = 6),
                         .lambda = exp(seq(-8, -2, length = 10)))
 set.seed(1)
-model.glmn <- train(x, y,
+model.glmn <- train(x = data.matrix(x),
+                   y,
                     method = "glmnet",
                     tuneGrid = glmnGrid,
                     metric = "ROC",
@@ -158,6 +166,14 @@ model.glmn <- train(x, y,
 plot(model.glmn, xTrans = function(x) log(x))   
 
 model.glmn$bestTune
+
+glmn.pred <- predict(model.glmn, newdata = data.matrix(x2), type = "prob")[,2]
+
+
+roc.glmn <- roc(y2, glmn.pred)
+plot(roc.glmn, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc.glmn), col = 4, add = TRUE)
+
 ```
 
 ## LDA
@@ -167,12 +183,13 @@ ctrl <- trainControl(method = "cv",
                      classProbs = TRUE)
 
 set.seed(1)
-model.lda <- train(x, y,
+model.lda <- train(x = data.matrix(x),
+                   y,
                    method = "lda",
                    metric = "ROC",
                    trControl = ctrl)
 
-lda.pred <- predict(model.lda, newdata = x2, type = "prob")
+lda.pred <- predict(model.lda, newdata = data.matrix(x2), type = "prob") [,2]
 
 roc.lda <- roc(y2, lda.pred)
 plot(roc.lda, legacy.axes = TRUE, print.auc = TRUE)
